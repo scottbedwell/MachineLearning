@@ -1,0 +1,91 @@
+---
+title: "Machine Learning Course Project"
+author: "Scott Bedwell"
+date: "December 21, 2014"
+output: html_document
+---
+
+<br />
+
+#Prep
+
+###Importing Packages and Loading Data
+```{r, warning=FALSE}
+library(caret)
+library(randomForest) #install.packages("randomForest")
+library(doMC) # install.packages('doMC')
+registerDoMC(4) #adjust to your number of cores.
+
+#setwd("/Users/Scott/Google\ Drive/R/MachineLearning")
+trainingOrig <- read.csv("pml-training.csv")
+training <- trainingOrig
+
+testingOrig <- read.csv("pml-testing.csv")
+testing <- testingOrig
+
+```
+
+###Data Cleansing
+
+Remove columns with over 95% NA in the training set, then remove those same columns from the testing set
+```{r,cache=TRUE}
+naCols <- (colSums(!is.na(training)) < (.95 * nrow(training)))
+training <- training[,!naCols]
+testing <- testing[,!naCols]
+```
+
+Remove columns with nearZeroVar based on training set, then remove those same columns from the testing set
+```{r,cache=TRUE}
+zeroVars <- nearZeroVar(training[,-160])
+training <- training[,-zeroVars]
+testing <- testing[,-zeroVars]
+```
+
+Remove columns 1 through 5 which are not needed for the model (user name, time stamps, etc.)
+```{r,cache=TRUE}
+training <- training[,-(1:5)]
+testing <- testing[,-(1:5)]
+```
+
+
+<br />
+
+#Model Building
+
+Use 3-fold cross validation to get an idea of out-of-sample error
+```{r,cache=TRUE}
+
+#Use 3-fold cross validation
+fitControl <- trainControl(method = "cv", number = 3)
+```
+
+Build model using Random Forest (rf)
+```{r,cache=TRUE, cache.lazy=FALSE}
+#set seed for reproducibility
+set.seed(465)
+#Try model creation on small sample to test code
+#trainingSub <- training[sample(nrow(training),100),]
+#modelFitSub <- train(classe ~., data=trainingSub, method="rf", prox=TRUE, trControl = fitControl)
+#modelFitSub
+modelFit <- train(classe ~., data=training, method="rf", prox=TRUE, trControl = fitControl)
+```
+
+Evaluate model fit
+```{r}
+modelFit
+confusionMatrix(modelFit)
+```
+
+Based on the model fit, which was performed with 3-fold cross validation, the out of sample error rate should be less than 1%; or more specifically, approximately .23%.
+
+<br />
+
+#Prediction
+
+Apply model to testing set
+
+```{r}
+testing$classePrediction <- predict(modelFit, testing)
+testing$classePrediction
+```
+
